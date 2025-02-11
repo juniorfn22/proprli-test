@@ -36,8 +36,8 @@ Antes de começar, você precisa ter o seguinte instalado:
 Clone o repositório do GitHub para sua máquina local:
 
 ```bash
-git clone https://github.com/seu-usuario/building-management.git
-cd building-management
+git clone https://github.com/juniorfn22/proprli-test
+cd proprli-test
 ```
 
 ### Passo 2: Instale as dependências

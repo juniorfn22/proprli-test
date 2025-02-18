@@ -1,4 +1,4 @@
-name: Deploy Laravel to Railway
+name: Deploy Laravel API to Railway
 
 on:
   push:
@@ -10,31 +10,32 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Clonar repositório
-        uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v2
 
-      - name: Instalar o PHP e dependências
+      - name: Set up PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.2'
-          extensions: mbstring, pdo, pdo_pgsql, tokenizer, xml
-          tools: composer:v2
+          php-version: '8.1'
+          extensions: mbstring, pdo, pdo_pgsql
 
-      - name: Instalar dependências do Laravel
-        run: composer install --no-dev --optimize-autoloader
-
-      - name: Copiar env
-        run: cp .env.example .env
-
-      - name: Gerar chave da aplicação
-        run: php artisan key:generate
-
-      - name: Rodar migrations
-        run: php artisan migrate --force
-
-      - name: Fazer deploy no Railway
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      - name: Install Composer dependencies
         run: |
-          curl -fsSL cli.railway.app | sh
-          railway up
+          curl -sS https://getcomposer.org/installer | php
+          php composer.phar install --no-interaction --prefer-dist
+
+      - name: Copy .env file
+        run: |
+          echo "APP_KEY=${{ secrets.APP_KEY }}" >> .env
+          echo "DB_CONNECTION=pgsql" >> .env
+          echo "DB_HOST=${{ secrets.DB_HOST }}" >> .env
+          echo "DB_PORT=5432" >> .env
+          echo "DB_DATABASE=${{ secrets.DB_DATABASE }}" >> .env
+          echo "DB_USERNAME=${{ secrets.DB_USERNAME }}" >> .env
+          echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
+
+      - name: Deploy to Railway
+        uses: railwayapp/railway-action@v1
+        with:
+          railway_token: ${{ secrets.RAILWAY_TOKEN }}
+          project_id: ${{ secrets.RAILWAY_PROJECT_ID }}

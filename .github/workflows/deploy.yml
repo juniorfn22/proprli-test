@@ -1,41 +1,75 @@
-name: Deploy Laravel API to Railway
+name: Deploy to Railway
 
 on:
   push:
     branches:
-      - main
+      - main  # Ou a branch de produção que você estiver usando
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-
     steps:
+      # 1. Checkout do código do repositório
       - name: Checkout code
         uses: actions/checkout@v2
 
-      - name: Set up PHP
+      # 2. Set up PHP
+      - name: Set up PHP 8.1
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.1'
-          extensions: mbstring, pdo, pdo_pgsql
+          extensions: mbstring, pdo, pdo_mysql, bcmath
+          coverage: none
 
-      - name: Install Composer dependencies
-        run: |
-          curl -sS https://getcomposer.org/installer | php
-          php composer.phar install --no-interaction --prefer-dist
-
-      - name: Copy .env file
-        run: |
-          echo "APP_KEY=${{ secrets.APP_KEY }}" >> .env
-          echo "DB_CONNECTION=pgsql" >> .env
-          echo "DB_HOST=${{ secrets.DB_HOST }}" >> .env
-          echo "DB_PORT=5432" >> .env
-          echo "DB_DATABASE=${{ secrets.DB_DATABASE }}" >> .env
-          echo "DB_USERNAME=${{ secrets.DB_USERNAME }}" >> .env
-          echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
-
-      - name: Deploy to Railway
-        uses: railwayapp/railway-action@v1
+      # 3. Configuração de cache do Composer
+      - name: Cache Composer dependencies
+        uses: actions/cache@v2
         with:
-          railway_token: ${{ secrets.RAILWAY_TOKEN }}
-          project_id: ${{ secrets.RAILWAY_PROJECT_ID }}
+          path: ~/.composer/cache
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-composer-
+
+      # 4. Instalar dependências do Composer
+      - name: Install Composer dependencies
+        run: composer install --no-progress --prefer-dist --ignore-platform-reqs
+
+      # 5. Configurar o Node.js (se for necessário para o frontend)
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '18'
+
+      # 6. Instalar dependências do npm
+      - name: Install npm dependencies
+        run: npm install
+
+      # 7. Construir o frontend com npm
+      - name: Build frontend
+        run: npm run build
+
+      # 8. Copiar o arquivo .env para o ambiente de produção
+      - name: Copy .env file
+        run: cp .env.example .env
+
+      # 9. Gerar a chave de aplicação do Laravel (caso necessário)
+      - name: Generate Laravel application key
+        run: php artisan key:generate
+
+      # 10. Rodar as migrations
+      - name: Run migrations
+        run: php artisan migrate --force
+
+      # 11. Copiar o arquivo .env para a pasta do ambiente (caso seja necessário)
+      - name: Set up environment variables
+        run: echo "APP_KEY=${{ secrets.APP_KEY }}" >> $GITHUB_ENV
+
+      # 12. Configurar a publicação do código no Railway
+      - name: Deploy to Railway
+        run: |
+          git remote add railway https://git.railway.app/${{ secrets.RAILWAY_PROJECT_ID }}
+          git push railway main
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
+      # 13. Outras configurações de deploy ou cleanup podem ser adicionadas aqui

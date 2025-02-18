@@ -1,0 +1,40 @@
+name: Deploy Laravel to Railway
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Clonar repositório
+        uses: actions/checkout@v3
+
+      - name: Instalar o PHP e dependências
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, pdo, pdo_pgsql, tokenizer, xml
+          tools: composer:v2
+
+      - name: Instalar dependências do Laravel
+        run: composer install --no-dev --optimize-autoloader
+
+      - name: Copiar env
+        run: cp .env.example .env
+
+      - name: Gerar chave da aplicação
+        run: php artisan key:generate
+
+      - name: Rodar migrations
+        run: php artisan migrate --force
+
+      - name: Fazer deploy no Railway
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          curl -fsSL cli.railway.app | sh
+          railway up
